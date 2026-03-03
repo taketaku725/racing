@@ -175,10 +175,12 @@ function assignCups(){
       return;
     }
 
-    const ratio = topWinRate / h.winRate;
-    let cups = Math.round(Math.sqrt(ratio)*1.8);
+    const diff = topWinRate - h.winRate;
+
+    let cups = 1 + Math.round(diff * 25);
 
     cups = Math.max(1,Math.min(10,cups));
+
     h.cups = cups;
   });
 }
@@ -304,21 +306,125 @@ function updateHorses(){
 // ===============================
 // 描画
 // ===============================
-const laps = raceSetting.distance / 1200;
+function drawRace(){
 
-horses.forEach((h,i)=>{
+  // --- キャンバスサイズ同期 ---
+  canvas.width  = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
 
-  const lapProgress = (h.distance / 1200);
-  const angle = (lapProgress % 1) * Math.PI * 2;
+  const w = canvas.width;
+  const h = canvas.height;
 
-  const x = cx + rx * Math.cos(angle);
-  const y = cy + ry * Math.sin(angle);
+  ctx.clearRect(0,0,w,h);
 
-  ctx.fillStyle = getHorseColor(i);
+  const cx = w/2;
+  const cy = h/2;
+
+  // トラックサイズ
+  const outerRx = w * 0.42;
+  const outerRy = h * 0.32;
+  const innerRx = w * 0.30;
+  const innerRy = h * 0.22;
+
+  // =========================
+  // 背景
+  // =========================
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(0,0,w,h);
+
+  // =========================
+  // トラック外周
+  // =========================
   ctx.beginPath();
-  ctx.arc(x,y,6,0,Math.PI*2);
+  ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
+  ctx.fillStyle = raceSetting.track === "芝" ? "#2e7d32" : "#8b5a2b";
   ctx.fill();
-});
+
+  // =========================
+  // 内側くり抜き
+  // =========================
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+  ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+
+  // =========================
+  // トラック枠線
+  // =========================
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
+  ctx.stroke();
+
+  // =========================
+  // スタート／ゴールライン（右側固定）
+  // =========================
+  ctx.strokeStyle = "#ff4444";
+  ctx.lineWidth = 4;
+
+  const goalXOuter = cx + outerRx;
+  const goalYOuter = cy;
+  const goalXInner = cx + innerRx;
+  const goalYInner = cy;
+
+  ctx.beginPath();
+  ctx.moveTo(goalXInner, goalYInner);
+  ctx.lineTo(goalXOuter, goalYOuter);
+  ctx.stroke();
+
+  // =========================
+  // 馬描画
+  // =========================
+
+  horses.forEach((h,i)=>{
+
+    // 実距離 → 周回進捗
+    const lapProgress = (h.distance / 1200); 
+    const angle = (lapProgress % 1) * Math.PI * 2;
+
+    // トラック中央ライン上を走らせる
+    const midRx = (outerRx + innerRx) / 2;
+    const midRy = (outerRy + innerRy) / 2;
+
+    const x = cx + midRx * Math.cos(angle);
+    const y = cy + midRy * Math.sin(angle);
+
+    // 馬影
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.arc(x+3,y+3,7,0,Math.PI*2);
+    ctx.fill();
+
+    // 馬本体
+    ctx.fillStyle = getHorseColor(i);
+    ctx.beginPath();
+    ctx.arc(x,y,7,0,Math.PI*2);
+    ctx.fill();
+
+    // 枠線
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // =========================
+  // 距離表示
+  // =========================
+  ctx.fillStyle = "white";
+  ctx.font = "14px sans-serif";
+  ctx.fillText(
+    `${raceSetting.distance}m / ${raceSetting.track} / ${raceSetting.weather}`,
+    10,
+    20
+  );
+}
+
 // ===============================
 function getHorseColor(i){
   const colors=["#ff5252","#ff9800","#ffee58","#66bb6a",
