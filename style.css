@@ -1,0 +1,45 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #111;
+  color: white;
+}
+
+.screen {
+  display: none;
+  padding: 10px;
+}
+
+.screen.active {
+  display: block;
+}
+
+canvas {
+  width: 100%;
+  background: #2e7d32;
+  border-radius: 12px;
+  touch-action: manipulation;
+}
+
+/* 縦画面 */
+@media (orientation: portrait) {
+  #ranking {
+    margin-top: 10px;
+  }
+}
+
+/* 横画面 */
+@media (orientation: landscape) {
+  #raceScreen {
+    display: flex;
+  }
+
+  #raceCanvas {
+    flex: 2;
+  }
+
+  #ranking {
+    flex: 1;
+    margin-left: 10px;
+  }
+}
