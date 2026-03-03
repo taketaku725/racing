@@ -226,7 +226,7 @@ document.getElementById("startRaceBtn").onclick=()=>{
 
 function startRace(){
 
-  horses.forEach(h=>{
+  horses.forEach((h, i)=>{
     h.distance=0;
     h.staminaLeft=h.stamina;
     h.finished=false;
