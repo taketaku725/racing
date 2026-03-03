@@ -30,9 +30,10 @@ let raceSetting = {};
 // ===== 初期化 =====
 initRace();
 
-function initRace() {
+function initRace(){
   generateRaceSetting();
   generateHorses();
+  calculateOdds();
   renderOddsScreen();
 }
 
@@ -41,6 +42,12 @@ function generateRaceSetting() {
   raceSetting.distance = distances[Math.floor(Math.random()*distances.length)];
   raceSetting.track = tracks[Math.floor(Math.random()*tracks.length)];
   raceSetting.weather = weathers[Math.floor(Math.random()*weathers.length)];
+}
+
+function getRaceTime(){
+  if(raceSetting.distance === 1200) return 20;
+  if(raceSetting.distance === 2400) return 30;
+  return 40;
 }
 
 // ===== 馬生成 =====
@@ -101,6 +108,112 @@ function decideStrategy(h) {
   return "先行";
 }
 
+// ===== オッズ生成 =====
+function calculateOdds(){
+
+  // 勝利回数リセット
+  horses.forEach(h => h.winCount = 0);
+
+  const SIM_COUNT = 100;
+
+  for(let i=0;i<SIM_COUNT;i++){
+    const winnerIndex = simulateRace();
+    horses[winnerIndex].winCount++;
+  }
+
+  // 勝率算出
+  horses.forEach(h=>{
+    h.winRate = h.winCount / SIM_COUNT;
+  });
+
+  assignCups();
+}
+
+function simulateRace(){
+
+  // 仮コピー（本番データを壊さない）
+  const simHorses = horses.map(h=>({
+    ...h,
+    distance: 0,
+    staminaLeft: h.stamina
+  }));
+
+  const totalTime = getRaceTime(); // 秒
+  const dt = 0.2;
+  const steps = totalTime / dt;
+
+  for(let t=0;t<steps;t++){
+
+    simHorses.forEach(h=>{
+
+      let baseSpeed = h.speed;
+
+      // 調子補正
+      baseSpeed += h.condition;
+
+      // 馬場補正
+      if(raceSetting.track === h.preferredTrack) baseSpeed += 5;
+
+      // 雨補正
+      if(raceSetting.weather === "雨"){
+        if(h.preferredTrack === "ダート") baseSpeed += 3;
+        if(h.preferredTrack === "芝") baseSpeed -= 3;
+      }
+
+      // スタミナ消耗
+      h.staminaLeft -= 0.1;
+      if(h.staminaLeft < 30){
+        baseSpeed -= 10;
+      }
+
+      // 終盤補正
+      if(h.distance > 0.8){
+        baseSpeed += h.guts * 0.05;
+      }
+
+      // 安定性ブレ
+      const variance = (100 - h.stability) * 0.02;
+      baseSpeed += (Math.random()*variance - variance/2);
+
+      // 前半作戦補正
+      if(h.strategy === "逃げ" && h.distance < 0.3){
+        baseSpeed += 5;
+      }
+      if(h.strategy === "追い込み" && h.distance > 0.7){
+        baseSpeed += 7;
+      }
+
+      // 前進
+      h.distance += baseSpeed * 0.0005;
+    });
+  }
+
+  // 最長距離の馬を返す
+  simHorses.sort((a,b)=>b.distance - a.distance);
+  return horses.findIndex(h=>h.name === simHorses[0].name);
+}
+
+function assignCups(){
+
+  const topWinRate = Math.max(...horses.map(h=>h.winRate));
+
+  horses.forEach(h=>{
+
+    if(h.winRate === 0){
+      h.cups = 10;
+      return;
+    }
+
+    const ratio = topWinRate / h.winRate;
+
+    let cups = Math.round(Math.sqrt(ratio) * 1.8);
+
+    cups = Math.max(1, Math.min(10, cups));
+
+    h.cups = cups;
+  });
+}
+
 // ===== 表示 =====
 function renderOddsScreen(){
 
@@ -126,7 +239,7 @@ function renderOddsScreen(){
       /
       調子:${conditionLabel(h.condition)}
       <br>
-      杯数: --
+      杯数: ${h.cups}杯
     `;
 
     horseList.appendChild(div);
