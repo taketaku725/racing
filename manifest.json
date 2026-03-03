@@ -1,0 +1,9 @@
+{
+  "name": "競馬(仮)",
+  "short_name": "競馬",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#2e7d32",
+  "start_url": "./index.html",
+  "icons": []
+}
