@@ -106,7 +106,7 @@ function calculateOdds(){
   }
 
   horses.forEach(h=>{
-    h.winRate = h.winCount/100;
+    h.winRate = h.winCount/1000;
   });
 
   assignCups();
@@ -230,6 +230,8 @@ function startRace(){
     h.distance=0;
     h.staminaLeft=h.stamina;
     h.finished=false;
+
+    h.laneOffset = i * 4;
   });
 
   lastTimestamp=null;
