@@ -203,11 +203,9 @@ function renderOddsScreen(){
     div.innerHTML=`
       <strong style="color:${COLORS[i]}">
         ${h.name}
-      </strong>
-      (${h.strategy})<br>
-      得意:${h.preferredTrack} /
-      調子:${conditionLabel(h.condition)}<br>
-      杯数:${h.cups}杯
+      </strong> ${h.cups}杯<br>
+      得意:${h.preferredTrack} ${h.strategy}<br>
+      調子:${conditionLabel(h.condition)}
     `;
 
     horseList.appendChild(div);
@@ -376,80 +374,124 @@ function updateHorses(dt){
 // ======================================
 function drawRace(){
 
-  canvas.width=canvas.clientWidth;
-  canvas.height=canvas.clientHeight;
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
 
-  const w=canvas.width;
-  const h=canvas.height;
+  const w = canvas.width;
+  const h = canvas.height;
 
   ctx.clearRect(0,0,w,h);
 
-  const radius=h*0.3;
-  const straight=w-radius*2-40;
+  // =============================
+  // コース形状パラメータ
+  // =============================
+  const radius = h * 0.3;
+  const straight = w - radius*2 - 40;
 
-  const left=20;
-  const top=h/2-radius;
+  const left = 20;
+  const top = h/2 - radius;
 
-  ctx.fillStyle="#1a1a1a";
+  const rightX = left + radius + straight;
+
+  ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0,0,w,h);
 
+  // =============================
   // 外ラチ
+  // =============================
   ctx.beginPath();
-  ctx.moveTo(left+radius,top);
-  ctx.lineTo(left+radius+straight,top);
-  ctx.arc(left+radius+straight,top+radius,radius,-Math.PI/2,Math.PI/2);
-  ctx.lineTo(left+radius,top+radius*2);
-  ctx.arc(left+radius,top+radius,radius,Math.PI/2,-Math.PI/2);
+  ctx.moveTo(left+radius, top);
+  ctx.lineTo(left+radius+straight, top);
+  ctx.arc(left+radius+straight, top+radius, radius, -Math.PI/2, Math.PI/2);
+  ctx.lineTo(left+radius, top+radius*2);
+  ctx.arc(left+radius, top+radius, radius, Math.PI/2, -Math.PI/2);
   ctx.closePath();
-  ctx.fillStyle=raceSetting.track==="芝"?"#2e7d32":"#8b5a2b";
+
+  ctx.fillStyle = raceSetting.track === "芝" ? "#2e7d32" : "#8b5a2b";
   ctx.fill();
 
-  // 内ラチ
-  const innerR=radius-TRACK_WIDTH;
-  ctx.globalCompositeOperation="destination-out";
+  // =============================
+  // 内ラチ（くり抜き）
+  // =============================
+  const innerR = radius - TRACK_WIDTH;
+
+  ctx.globalCompositeOperation = "destination-out";
   ctx.beginPath();
-  ctx.moveTo(left+radius,top+TRACK_WIDTH);
-  ctx.lineTo(left+radius+straight,top+TRACK_WIDTH);
-  ctx.arc(left+radius+straight,top+radius,innerR,-Math.PI/2,Math.PI/2);
-  ctx.lineTo(left+radius,top+radius*2-TRACK_WIDTH);
-  ctx.arc(left+radius,top+radius,innerR,Math.PI/2,-Math.PI/2);
+  ctx.moveTo(left+radius, top+TRACK_WIDTH);
+  ctx.lineTo(left+radius+straight, top+TRACK_WIDTH);
+  ctx.arc(left+radius+straight, top+radius, innerR, -Math.PI/2, Math.PI/2);
+  ctx.lineTo(left+radius, top+radius*2-TRACK_WIDTH);
+  ctx.arc(left+radius, top+radius, innerR, Math.PI/2, -Math.PI/2);
   ctx.closePath();
   ctx.fill();
-  ctx.globalCompositeOperation="source-over";
+  ctx.globalCompositeOperation = "source-over";
 
+  // =============================
   // スタート線（右下）
-  ctx.strokeStyle="yellow";
-  ctx.lineWidth=3;
+  // =============================
+  ctx.strokeStyle = "yellow";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(left+radius+straight,top+radius*2);
-  ctx.lineTo(left+radius+straight,top+radius*2-TRACK_WIDTH);
+  ctx.moveTo(rightX, top+radius*2);
+  ctx.lineTo(rightX, top+radius*2-TRACK_WIDTH);
   ctx.stroke();
 
+  // =============================
   // ゴール線（右上）
-  ctx.strokeStyle="red";
+  // =============================
+  ctx.strokeStyle = "red";
   ctx.beginPath();
-  ctx.moveTo(left+radius+straight,top);
-  ctx.lineTo(left+radius+straight,top+TRACK_WIDTH);
+  ctx.moveTo(rightX, top);
+  ctx.lineTo(rightX, top+TRACK_WIDTH);
   ctx.stroke();
 
+  // =============================
   // 馬描画
+  // =============================
   horses.forEach((h,i)=>{
 
-    const pos=getTrackPosition(h.distance,left,top,radius,straight);
+    const pos = getTrackPosition(
+      h.distance,
+      left,
+      top,
+      radius,
+      straight
+    );
 
-    const x=pos.x + pos.normalX*h.laneOffset;
-    const y=pos.y + pos.normalY*h.laneOffset;
+    const x = pos.x + pos.normalX * h.laneOffset;
+    const y = pos.y + pos.normalY * h.laneOffset;
 
-    ctx.fillStyle="rgba(0,0,0,0.4)";
+    // 影
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.beginPath();
     ctx.arc(x+3,y+3,6,0,Math.PI*2);
     ctx.fill();
 
-    ctx.fillStyle=COLORS[i];
+    // 本体
+    ctx.fillStyle = COLORS[i];
     ctx.beginPath();
     ctx.arc(x,y,6,0,Math.PI*2);
     ctx.fill();
   });
+
+  // =============================
+  // コース情報表示
+  // =============================
+  ctx.fillStyle = "white";
+  ctx.font = "14px sans-serif";
+  ctx.textAlign = "left";
+
+  ctx.fillText(
+    `${raceSetting.distance}m / ${raceSetting.track} / ${raceSetting.weather}`,
+    20,
+    20
+  );
+}
+
+function trackLapLength(){
+  const radius = canvas.height*0.3;
+  const straight = canvas.width - radius*2 - 40;
+  return 2*straight + 2*Math.PI*radius;
 }
 
 // ======================================
@@ -513,12 +555,10 @@ function finishRace(){
   const result=[...horses].sort((a,b)=>b.distance-a.distance);
 
   resultList.innerHTML=result.map((h,i)=>{
-
     const index=horses.findIndex(x=>x.name===h.name);
     return `<span style="color:${COLORS[index]}">
-      ${i+1}位 ${h.name}
+      ${i+1}位 ${h.name} ${h.cups}杯
     </span>`;
-
   }).join("<br>");
 }
 
