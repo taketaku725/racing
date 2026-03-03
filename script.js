@@ -64,11 +64,11 @@ function generateHorses(){
 
     const horse = {
       name: shuffledFirst[i] + shuffledLast[i],
-      speed: rand(60,100),
-      stamina: rand(60,100),
-      acceleration: rand(60,100),
-      stability: rand(60,100),
-      guts: rand(60,100),
+      speed: rand(70,95),
+      stamina: rand(70,95),
+      acceleration: rand(70,95),
+      stability: rand(70,95),
+      guts: rand(70,95),
       preferredTrack: tracks[rand(0,1)],
       condition: rand(-10,10),
       strategy: "",
@@ -100,7 +100,7 @@ function calculateOdds(){
 
   horses.forEach(h=>h.winCount=0);
 
-  for(let i=0;i<100;i++){
+  for(let i=0;i<1000;i++){
     const winner = simulateRace();
     horses[winner].winCount++;
   }
