@@ -242,14 +242,40 @@ document.getElementById("backBtn").onclick=()=>{
 function startRace(){
 
   horses.forEach((h,i)=>{
-    h.distance=0;
-    h.staminaLeft=h.stamina;
-    h.finished=false;
-    h.laneOffset=i*5;
+    h.distance = 0;
+    h.prevDistance = 0;
+    h.lapCount = 0;
+    h.finished = false;
+    h.staminaLeft = h.stamina;
+
+    h.laneOffset = TRACK_WIDTH - 10; // 外側スタート
+    h.lockedInside = false;
   });
 
-  lastTimestamp=null;
-  animationId=requestAnimationFrame(raceLoop);
+  countdownAndStart();
+}
+
+function countdownAndStart(){
+
+  let count = 3;
+
+  const interval = setInterval(()=>{
+
+    drawRace();
+    ctx.fillStyle="white";
+    ctx.font="bold 60px sans-serif";
+    ctx.textAlign="center";
+    ctx.fillText(count>0?count:"GO!",canvas.width/2,canvas.height/2);
+
+    count--;
+
+    if(count < -1){
+      clearInterval(interval);
+      lastTimestamp=null;
+      animationId=requestAnimationFrame(raceLoop);
+    }
+
+  },1000);
 }
 
 // ======================================
@@ -277,43 +303,71 @@ function raceLoop(timestamp){
 // ======================================
 function updateHorses(dt){
 
+  // 現在順位取得
+  const sorted = [...horses].sort((a,b)=>b.distance-a.distance);
+
   horses.forEach(h=>{
 
     if(h.finished) return;
 
-    let speed=h.speed+h.condition;
+    let speed = h.speed + h.condition;
 
     if(raceSetting.track===h.preferredTrack) speed+=4;
 
-    h.staminaLeft-=8*dt;
+    h.staminaLeft -= 8*dt;
     if(h.staminaLeft<30) speed-=12;
 
     if(h.distance>raceSetting.distance*0.8)
       speed+=h.guts*0.08;
 
-    speed+=(Math.random()*4-2);
+    speed += (Math.random()*4-2);
 
-    const ahead=horses.find(o=>
-      o!==h && !o.finished &&
-      o.distance>h.distance &&
-      o.distance-h.distance<20
-    );
+    // =========================
+    // 内側キープロジック
+    // =========================
 
-    if(ahead){
-      h.laneOffset+=20*dt;
-    }else{
-      h.laneOffset-=15*dt;
+    if(!h.lockedInside){
+      h.laneOffset -= 25*dt; // 常に内へ戻る力
     }
 
-    if(h.laneOffset<0)h.laneOffset=0;
-    if(h.laneOffset>TRACK_WIDTH-10)h.laneOffset=TRACK_WIDTH-10;
-
-    h.distance+=speed*dt;
-
-    if(h.distance>=raceSetting.distance){
-      h.distance=raceSetting.distance;
-      h.finished=true;
+    // 半分より内に入ったらロック
+    if(h.laneOffset < TRACK_WIDTH/2){
+      h.lockedInside = true;
     }
+
+    // 1位以外だけ左右揺れ
+    if(sorted[0] !== h){
+      const sway = Math.sin(performance.now()/200 + h.speed)*2;
+      h.laneOffset += sway*dt;
+    }
+
+    if(h.lockedInside && h.laneOffset > TRACK_WIDTH/2){
+      h.laneOffset = TRACK_WIDTH/2;
+    }
+
+    if(h.laneOffset < 0) h.laneOffset = 0;
+    if(h.laneOffset > TRACK_WIDTH-8) h.laneOffset = TRACK_WIDTH-8;
+
+    // =========================
+
+    h.distance += speed*dt;
+
+    // ゴール判定（ゴール線踏んだ回数）
+    const requiredLaps = raceSetting.distance / 1200;
+
+    const lapLength = trackLapLength();
+    const prevLap = Math.floor(h.prevDistance / lapLength);
+    const currentLap = Math.floor(h.distance / lapLength);
+
+    if(currentLap > prevLap){
+      h.lapCount++;
+    }
+
+    if(h.lapCount >= requiredLaps){
+      h.finished = true;
+    }
+
+    h.prevDistance = h.distance;
   });
 }
 
