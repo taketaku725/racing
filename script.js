@@ -231,7 +231,7 @@ function startRace(){
     h.staminaLeft=h.stamina;
     h.finished=false;
 
-    h.laneOffset = i * 4;
+    h.laneOffset = 40;
   });
 
   lastTimestamp=null;
@@ -260,33 +260,89 @@ function raceLoop(timestamp){
 // =======================================
 function updateHorses(dt){
 
-  horses.forEach(h=>{
+  horses.forEach(h => {
 
     if(h.finished) return;
 
-    let speed=h.speed+h.condition;
+    // =========================
+    // 基本速度
+    // =========================
+    let speed = h.speed + h.condition;
 
-    if(raceSetting.track===h.preferredTrack) speed+=5;
-
-    if(raceSetting.weather==="雨"){
-      if(h.preferredTrack==="ダート") speed+=3;
-      if(h.preferredTrack==="芝") speed-=3;
+    // 馬場補正
+    if(raceSetting.track === h.preferredTrack){
+      speed += 4;
     }
 
-    h.staminaLeft-=10*dt;
-    if(h.staminaLeft<30) speed-=15;
+    // 雨補正
+    if(raceSetting.weather === "雨"){
+      if(h.preferredTrack === "ダート") speed += 2;
+      if(h.preferredTrack === "芝") speed -= 2;
+    }
 
-    if(h.distance>raceSetting.distance*0.8)
-      speed+=h.guts*0.1;
+    // =========================
+    // スタミナ減衰
+    // =========================
+    h.staminaLeft -= 8 * dt;
 
-    const variance=(100-h.stability)*0.1;
-    speed+=(Math.random()*variance-variance/2);
+    if(h.staminaLeft < 30){
+      speed -= 12;
+    }
 
-    h.distance+=speed*dt;
+    // =========================
+    // 終盤補正（残り20%）
+    // =========================
+    if(h.distance > raceSetting.distance * 0.8){
+      speed += h.guts * 0.08;
+    }
 
-    if(h.distance>=raceSetting.distance){
-      h.distance=raceSetting.distance;
-      h.finished=true;
+    // =========================
+    // 安定性ブレ
+    // =========================
+    const variance = (100 - h.stability) * 0.08;
+    speed += (Math.random() * variance - variance / 2);
+
+    // =========================
+    // 作戦補正
+    // =========================
+    if(h.strategy === "逃げ" && h.distance < raceSetting.distance * 0.3){
+      speed += 10;
+    }
+
+    if(h.strategy === "追い込み" && h.distance > raceSetting.distance * 0.7){
+      speed += 14;
+    }
+
+    // =========================
+    // 抜き判定（前方20m以内）
+    // =========================
+    const ahead = horses.find(o =>
+      o !== h &&
+      !o.finished &&
+      o.distance > h.distance &&
+      o.distance - h.distance < 20
+    );
+
+    if(ahead){
+      // 外へ回避（はみ出さない）
+      h.laneOffset += 60 * dt;
+    }else{
+      // 徐々に内へ戻る
+      h.laneOffset -= 30 * dt;
+    }
+
+    // コース幅制限（0〜40）
+    if(h.laneOffset < 0) h.laneOffset = 0;
+    if(h.laneOffset > 40) h.laneOffset = 40;
+
+    // =========================
+    // 前進（秒速換算）
+    // =========================
+    h.distance += speed * dt;
+
+    if(h.distance >= raceSetting.distance){
+      h.distance = raceSetting.distance;
+      h.finished = true;
     }
   });
 }
@@ -302,85 +358,119 @@ function drawRace(){
 
   ctx.clearRect(0,0,w,h);
 
-  const cx = w/2;
-  const cy = h/2;
+  const trackWidth = 40;   // コース幅（一定）
 
-  const outerRx = w*0.42;
-  const outerRy = h*0.32;
-  const innerRx = w*0.30;
-  const innerRy = h*0.22;
+  const radius = h * 0.3;
+  const straight = w - radius*2 - 40;
+
+  const left = 20;
+  const top = h/2 - radius;
 
   ctx.fillStyle="#1a1a1a";
   ctx.fillRect(0,0,w,h);
 
-  // トラック
+  // ===== 外ラチ =====
   ctx.beginPath();
-  ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
+  ctx.moveTo(left + radius, top);
+  ctx.lineTo(left + radius + straight, top);
+  ctx.arc(left + radius + straight, top + radius, radius, -Math.PI/2, Math.PI/2);
+  ctx.lineTo(left + radius, top + radius*2);
+  ctx.arc(left + radius, top + radius, radius, Math.PI/2, -Math.PI/2);
+  ctx.closePath();
+
   ctx.fillStyle = raceSetting.track==="芝" ? "#2e7d32" : "#8b5a2b";
   ctx.fill();
 
+  // ===== 内ラチ =====
+  const innerR = radius - trackWidth;
+
   ctx.globalCompositeOperation="destination-out";
   ctx.beginPath();
-  ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
+  ctx.moveTo(left + radius, top + trackWidth);
+  ctx.lineTo(left + radius + straight, top + trackWidth);
+  ctx.arc(left + radius + straight, top + radius, innerR, -Math.PI/2, Math.PI/2);
+  ctx.lineTo(left + radius, top + radius*2 - trackWidth);
+  ctx.arc(left + radius, top + radius, innerR, Math.PI/2, -Math.PI/2);
+  ctx.closePath();
   ctx.fill();
   ctx.globalCompositeOperation="source-over";
 
   ctx.strokeStyle="white";
   ctx.lineWidth=2;
-  ctx.beginPath();
-  ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
   ctx.stroke();
 
-  ctx.beginPath();
-  ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
-  ctx.stroke();
-
-  const midRxBase = (outerRx+innerRx)/2;
-  const midRyBase = (outerRy+innerRy)/2;
-
-  // ゴール線（最終周の半分以降）
-  const leader = [...horses].sort((a,b)=>b.distance-a.distance)[0];
-  const finalLapStart = raceSetting.distance - 1200;
-
-  if(leader.distance > finalLapStart + 600){
-
-    ctx.strokeStyle="#ff4444";
-    ctx.lineWidth=4;
-
-    const angle = 0; // 右側固定
-    const x1 = cx + innerRx * Math.cos(angle);
-    const y1 = cy + innerRy * Math.sin(angle);
-    const x2 = cx + outerRx * Math.cos(angle);
-    const y2 = cy + outerRy * Math.sin(angle);
-
-    ctx.beginPath();
-    ctx.moveTo(x1,y1);
-    ctx.lineTo(x2,y2);
-    ctx.stroke();
-  }
-
-  // 馬描画
+  // ===== 馬描画 =====
   horses.forEach((h,i)=>{
 
-    const lapProgress = h.distance / 1200;
-    const angle = (lapProgress % 1) * Math.PI*2;
+    const pos = getPositionOnTrack(h.distance, left, top, radius, straight);
 
-    const midRx = midRxBase + h.laneOffset;
-    const midRy = midRyBase + h.laneOffset*0.7;
+    const lane = Math.max(0, Math.min(trackWidth, h.laneOffset));
 
-    const x = cx + midRx * Math.cos(angle);
-    const y = cy + midRy * Math.sin(angle);
+    const offsetRatio = lane / trackWidth;
+
+    // 外側→内側へ寄る
+    const offsetX = pos.normalX * lane;
+    const offsetY = pos.normalY * lane;
+
+    const x = pos.x + offsetX;
+    const y = pos.y + offsetY;
 
     ctx.fillStyle="rgba(0,0,0,0.4)";
     ctx.beginPath();
-    ctx.arc(x+3,y+3,7,0,Math.PI*2);
+    ctx.arc(x+3,y+3,6,0,Math.PI*2);
     ctx.fill();
 
     ctx.fillStyle=getHorseColor(i);
     ctx.beginPath();
-    ctx.arc(x,y,7,0,Math.PI*2);
+    ctx.arc(x,y,6,0,Math.PI*2);
     ctx.fill();
   });
+}
+
+function getPositionOnTrack(distance, left, top, radius, straight){
+
+  const lapLength = 2*straight + 2*Math.PI*radius;
+  const d = distance % lapLength;
+
+  // 上直線
+  if(d < straight){
+    return {
+      x: left + radius + d,
+      y: top,
+      normalX: 0,
+      normalY: 1
+    };
+  }
+
+  // 右カーブ
+  if(d < straight + Math.PI*radius){
+    const angle = -Math.PI/2 + (d - straight)/radius;
+    return {
+      x: left + radius + straight + radius*Math.cos(angle),
+      y: top + radius + radius*Math.sin(angle),
+      normalX: -Math.cos(angle),
+      normalY: -Math.sin(angle)
+    };
+  }
+
+  // 下直線
+  if(d < straight*2 + Math.PI*radius){
+    return {
+      x: left + radius + straight - (d - straight - Math.PI*radius),
+      y: top + radius*2,
+      normalX: 0,
+      normalY: -1
+    };
+  }
+
+  // 左カーブ
+  const angle = Math.PI/2 + (d - straight*2 - Math.PI*radius)/radius;
+  return {
+    x: left + radius + radius*Math.cos(angle),
+    y: top + radius + radius*Math.sin(angle),
+    normalX: -Math.cos(angle),
+    normalY: -Math.sin(angle)
+  };
 }
 
 // =======================================
