@@ -165,7 +165,7 @@ function assignCups(){
     }
 
     const diff = top - h.winRate;
-    let cups = 1 + Math.round(diff*25);
+    let cups = 1 + Math.round(diff*15);
 
     cups = Math.max(1,Math.min(10,cups));
     h.cups=cups;
