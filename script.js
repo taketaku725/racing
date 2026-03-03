@@ -1,6 +1,6 @@
-// ===============================
+// =======================================
 // 画面取得
-// ===============================
+// =======================================
 const oddsScreen = document.getElementById("oddsScreen");
 const raceScreen = document.getElementById("raceScreen");
 const resultScreen = document.getElementById("resultScreen");
@@ -13,9 +13,9 @@ const resultList = document.getElementById("resultList");
 const canvas = document.getElementById("raceCanvas");
 const ctx = canvas.getContext("2d");
 
-// ===============================
+// =======================================
 // 基本データ
-// ===============================
+// =======================================
 const firstParts = ["トウカイ","ゴールド","ミホノ","サクラ","メジロ","ナリタ","シンボリ","タマモ"];
 const lastParts  = ["テイオー","シップ","ブルボン","スター","キング","ボルト","クラウン","ドラゴン"];
 
@@ -27,11 +27,11 @@ let horses = [];
 let raceSetting = {};
 
 let animationId;
-let raceStartTime;
+let lastTimestamp = null;
 
-// ===============================
+// =======================================
 // 初期化
-// ===============================
+// =======================================
 initRace();
 
 function initRace(){
@@ -41,18 +41,18 @@ function initRace(){
   renderOddsScreen();
 }
 
-// ===============================
-// レース条件生成
-// ===============================
+// =======================================
+// レース条件
+// =======================================
 function generateRaceSetting(){
-  raceSetting.distance = distances[rand(0,distances.length-1)];
-  raceSetting.track = tracks[rand(0,tracks.length-1)];
-  raceSetting.weather = weathers[rand(0,weathers.length-1)];
+  raceSetting.distance = distances[rand(0,2)];
+  raceSetting.track = tracks[rand(0,1)];
+  raceSetting.weather = weathers[rand(0,1)];
 }
 
-// ===============================
+// =======================================
 // 馬生成
-// ===============================
+// =======================================
 function generateHorses(){
 
   horses = [];
@@ -82,11 +82,8 @@ function generateHorses(){
   }
 }
 
-// ===============================
-// 作戦決定
-// ===============================
+// =======================================
 function decideStrategy(h){
-
   const front = h.speed + h.acceleration;
   const late  = h.stamina + h.guts;
 
@@ -96,22 +93,20 @@ function decideStrategy(h){
   return "先行";
 }
 
-// ===============================
-// 裏シミュレーション100回
-// ===============================
+// =======================================
+// 裏シミュ100回
+// =======================================
 function calculateOdds(){
 
   horses.forEach(h=>h.winCount=0);
 
-  const SIM_COUNT = 100;
-
-  for(let i=0;i<SIM_COUNT;i++){
-    const winnerIndex = simulateRace();
-    horses[winnerIndex].winCount++;
+  for(let i=0;i<100;i++){
+    const winner = simulateRace();
+    horses[winner].winCount++;
   }
 
   horses.forEach(h=>{
-    h.winRate = h.winCount / SIM_COUNT;
+    h.winRate = h.winCount/100;
   });
 
   assignCups();
@@ -119,54 +114,48 @@ function calculateOdds(){
 
 function simulateRace(){
 
-  const simHorses = horses.map(h=>({
+  const sim = horses.map(h=>({
     ...h,
     distance:0,
     staminaLeft:h.stamina
   }));
 
-  const totalTime = getRaceTime();
-  const dt = 0.2;
-  const steps = totalTime / dt;
+  while(sim.some(h=>h.distance < raceSetting.distance)){
 
-  for(let t=0;t<steps;t++){
+    sim.forEach(h=>{
 
-    simHorses.forEach(h=>{
+      if(h.distance >= raceSetting.distance) return;
 
-      let baseSpeed = h.speed + h.condition;
+      let speed = h.speed + h.condition;
 
-      if(raceSetting.track === h.preferredTrack) baseSpeed += 5;
+      if(raceSetting.track===h.preferredTrack) speed+=5;
 
-      if(raceSetting.weather === "雨"){
-        if(h.preferredTrack==="ダート") baseSpeed+=3;
-        if(h.preferredTrack==="芝") baseSpeed-=3;
+      if(raceSetting.weather==="雨"){
+        if(h.preferredTrack==="ダート") speed+=3;
+        if(h.preferredTrack==="芝") speed-=3;
       }
 
-      h.staminaLeft -= 0.1;
-      if(h.staminaLeft < 30) baseSpeed -= 10;
+      h.staminaLeft -= 1;
+      if(h.staminaLeft<30) speed-=10;
 
-      if(h.distance > 0.8) baseSpeed += h.guts*0.05;
+      if(h.distance > raceSetting.distance*0.8)
+        speed += h.guts*0.1;
 
-      const variance = (100-h.stability)*0.02;
-      baseSpeed += (Math.random()*variance - variance/2);
+      const variance=(100-h.stability)*0.1;
+      speed += (Math.random()*variance-variance/2);
 
-      if(h.strategy==="逃げ" && h.distance<0.3) baseSpeed+=5;
-      if(h.strategy==="追い込み" && h.distance>0.7) baseSpeed+=7;
-
-      h.distance += baseSpeed*0.0005;
+      h.distance += speed*0.2;
     });
   }
 
-  simHorses.sort((a,b)=>b.distance-a.distance);
-  return horses.findIndex(h=>h.name===simHorses[0].name);
+  sim.sort((a,b)=>b.distance-a.distance);
+  return horses.findIndex(h=>h.name===sim[0].name);
 }
 
-// ===============================
-// 杯数決定（トップ1杯方式）
-// ===============================
+// =======================================
 function assignCups(){
 
-  const topWinRate = Math.max(...horses.map(h=>h.winRate));
+  const top = Math.max(...horses.map(h=>h.winRate));
 
   horses.forEach(h=>{
 
@@ -175,19 +164,17 @@ function assignCups(){
       return;
     }
 
-    const diff = topWinRate - h.winRate;
-
-    let cups = 1 + Math.round(diff * 25);
+    const diff = top - h.winRate;
+    let cups = 1 + Math.round(diff*25);
 
     cups = Math.max(1,Math.min(10,cups));
-
-    h.cups = cups;
+    h.cups=cups;
   });
 }
 
-// ===============================
+// =======================================
 // 表示
-// ===============================
+// =======================================
 function renderOddsScreen(){
 
   raceInfo.innerHTML =
@@ -197,13 +184,17 @@ function renderOddsScreen(){
 
   horseList.innerHTML="";
 
-  horses.forEach(h=>{
+  horses.forEach((h,index)=>{
+
     const div=document.createElement("div");
     div.style.borderBottom="1px solid #555";
     div.style.padding="8px 0";
 
     div.innerHTML=`
-      <strong>${h.name}</strong> (${h.strategy})<br>
+      <strong style="color:${getHorseColor(index)}">
+        ${h.name}
+      </strong>
+      (${h.strategy})<br>
       得意:${h.preferredTrack} /
       調子:${conditionLabel(h.condition)}<br>
       杯数:${h.cups}杯
@@ -213,9 +204,7 @@ function renderOddsScreen(){
   });
 }
 
-// ===============================
-// 調子表示
-// ===============================
+// =======================================
 function conditionLabel(v){
   if(v>=8) return "絶好調";
   if(v>=5) return "好調";
@@ -226,9 +215,9 @@ function conditionLabel(v){
   return "絶不調";
 }
 
-// ===============================
+// =======================================
 // レース開始
-// ===============================
+// =======================================
 document.getElementById("startRaceBtn").onclick=()=>{
   oddsScreen.classList.remove("active");
   raceScreen.classList.add("active");
@@ -238,122 +227,103 @@ document.getElementById("startRaceBtn").onclick=()=>{
 function startRace(){
 
   horses.forEach(h=>{
-    h.progress=0;
+    h.distance=0;
     h.staminaLeft=h.stamina;
+    h.finished=false;
   });
 
-  raceStartTime=null;
+  lastTimestamp=null;
   animationId=requestAnimationFrame(raceLoop);
 }
 
-// ===============================
-// レースループ
-// ===============================
-function raceLoop(){
+// =======================================
+function raceLoop(timestamp){
 
-  updateHorses();
+  if(!lastTimestamp) lastTimestamp=timestamp;
+
+  const dt=(timestamp-lastTimestamp)/1000;
+  lastTimestamp=timestamp;
+
+  updateHorses(dt);
   drawRace();
   updateRanking();
 
-  const allFinished = horses.every(h=>h.finished);
-
-  if(!allFinished){
-    animationId = requestAnimationFrame(raceLoop);
+  if(!horses.every(h=>h.finished)){
+    animationId=requestAnimationFrame(raceLoop);
   }else{
     finishRace();
   }
 }
 
-// ===============================
-function updateHorses(){
+// =======================================
+function updateHorses(dt){
 
   horses.forEach(h=>{
 
     if(h.finished) return;
 
-    let baseSpeed = h.speed + h.condition;
+    let speed=h.speed+h.condition;
 
-    if(raceSetting.track === h.preferredTrack) baseSpeed += 5;
+    if(raceSetting.track===h.preferredTrack) speed+=5;
 
-    if(raceSetting.weather === "雨"){
-      if(h.preferredTrack==="ダート") baseSpeed+=3;
-      if(h.preferredTrack==="芝") baseSpeed-=3;
+    if(raceSetting.weather==="雨"){
+      if(h.preferredTrack==="ダート") speed+=3;
+      if(h.preferredTrack==="芝") speed-=3;
     }
 
-    h.staminaLeft -= 0.05;
-    if(h.staminaLeft < 30) baseSpeed -= 10;
+    h.staminaLeft-=10*dt;
+    if(h.staminaLeft<30) speed-=15;
 
-    // 終盤補正（残り20%）
-    if(h.distance > raceSetting.distance * 0.8){
-      baseSpeed += h.guts * 0.05;
-    }
+    if(h.distance>raceSetting.distance*0.8)
+      speed+=h.guts*0.1;
 
-    const variance = (100-h.stability)*0.02;
-    baseSpeed += (Math.random()*variance - variance/2);
+    const variance=(100-h.stability)*0.1;
+    speed+=(Math.random()*variance-variance/2);
 
-    if(h.strategy==="逃げ" && h.distance < raceSetting.distance*0.3) baseSpeed+=5;
-    if(h.strategy==="追い込み" && h.distance > raceSetting.distance*0.7) baseSpeed+=7;
+    h.distance+=speed*dt;
 
-    h.distance += baseSpeed * 0.05; // ←ここがレース速度
-
-    if(h.distance >= raceSetting.distance){
-      h.distance = raceSetting.distance;
-      h.finished = true;
+    if(h.distance>=raceSetting.distance){
+      h.distance=raceSetting.distance;
+      h.finished=true;
     }
   });
 }
 
-// ===============================
-// 描画
-// ===============================
+// =======================================
 function drawRace(){
 
-  // --- キャンバスサイズ同期 ---
-  canvas.width  = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
+  canvas.width=canvas.clientWidth;
+  canvas.height=canvas.clientHeight;
 
-  const w = canvas.width;
-  const h = canvas.height;
+  const w=canvas.width;
+  const h=canvas.height;
 
   ctx.clearRect(0,0,w,h);
 
-  const cx = w/2;
-  const cy = h/2;
+  const cx=w/2;
+  const cy=h/2;
 
-  // トラックサイズ
-  const outerRx = w * 0.42;
-  const outerRy = h * 0.32;
-  const innerRx = w * 0.30;
-  const innerRy = h * 0.22;
+  const outerRx=w*0.42;
+  const outerRy=h*0.32;
+  const innerRx=w*0.30;
+  const innerRy=h*0.22;
 
-  // =========================
-  // 背景
-  // =========================
-  ctx.fillStyle = "#1a1a1a";
+  ctx.fillStyle="#1a1a1a";
   ctx.fillRect(0,0,w,h);
 
-  // =========================
-  // トラック外周
-  // =========================
   ctx.beginPath();
   ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
-  ctx.fillStyle = raceSetting.track === "芝" ? "#2e7d32" : "#8b5a2b";
+  ctx.fillStyle=raceSetting.track==="芝"?"#2e7d32":"#8b5a2b";
   ctx.fill();
 
-  // =========================
-  // 内側くり抜き
-  // =========================
-  ctx.globalCompositeOperation = "destination-out";
+  ctx.globalCompositeOperation="destination-out";
   ctx.beginPath();
   ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
   ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
+  ctx.globalCompositeOperation="source-over";
 
-  // =========================
-  // トラック枠線
-  // =========================
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle="white";
+  ctx.lineWidth=3;
   ctx.beginPath();
   ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
   ctx.stroke();
@@ -361,105 +331,76 @@ function drawRace(){
   ctx.beginPath();
   ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
   ctx.stroke();
-
-  // =========================
-  // スタート／ゴールライン（右側固定）
-  // =========================
-  ctx.strokeStyle = "#ff4444";
-  ctx.lineWidth = 4;
-
-  const goalXOuter = cx + outerRx;
-  const goalYOuter = cy;
-  const goalXInner = cx + innerRx;
-  const goalYInner = cy;
-
-  ctx.beginPath();
-  ctx.moveTo(goalXInner, goalYInner);
-  ctx.lineTo(goalXOuter, goalYOuter);
-  ctx.stroke();
-
-  // =========================
-  // 馬描画
-  // =========================
 
   horses.forEach((h,i)=>{
 
-    // 実距離 → 周回進捗
-    const lapProgress = (h.distance / 1200); 
-    const angle = (lapProgress % 1) * Math.PI * 2;
+    const lapProgress=(h.distance/1200);
+    const angle=(lapProgress%1)*Math.PI*2;
 
-    // トラック中央ライン上を走らせる
-    const midRx = (outerRx + innerRx) / 2;
-    const midRy = (outerRy + innerRy) / 2;
+    const midRx=(outerRx+innerRx)/2;
+    const midRy=(outerRy+innerRy)/2;
 
-    const x = cx + midRx * Math.cos(angle);
-    const y = cy + midRy * Math.sin(angle);
+    const x=cx+midRx*Math.cos(angle);
+    const y=cy+midRy*Math.sin(angle);
 
-    // 馬影
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillStyle="rgba(0,0,0,0.4)";
     ctx.beginPath();
     ctx.arc(x+3,y+3,7,0,Math.PI*2);
     ctx.fill();
 
-    // 馬本体
-    ctx.fillStyle = getHorseColor(i);
+    ctx.fillStyle=getHorseColor(i);
     ctx.beginPath();
     ctx.arc(x,y,7,0,Math.PI*2);
     ctx.fill();
-
-    // 枠線
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 1;
-    ctx.stroke();
   });
-
-  // =========================
-  // 距離表示
-  // =========================
-  ctx.fillStyle = "white";
-  ctx.font = "14px sans-serif";
-  ctx.fillText(
-    `${raceSetting.distance}m / ${raceSetting.track} / ${raceSetting.weather}`,
-    10,
-    20
-  );
 }
 
-// ===============================
-function getHorseColor(i){
-  const colors=["#ff5252","#ff9800","#ffee58","#66bb6a",
-                "#42a5f5","#ab47bc","#ec407a","#26c6da"];
-  return colors[i];
-}
-
-// ===============================
+// =======================================
 function updateRanking(){
 
-  const sorted=[...horses].sort((a,b)=>b.progress-a.progress);
+  const sorted=[...horses]
+    .sort((a,b)=>b.distance-a.distance);
 
-  rankingDiv.innerHTML=
-    sorted.map((h,i)=>`${i+1}位 ${h.name}`).join("<br>");
+  rankingDiv.innerHTML=sorted.map((h,i)=>{
+
+    const index=horses.findIndex(x=>x.name===h.name);
+    const color=getHorseColor(index);
+
+    return `<span style="color:${color}">
+              ${i+1}位 ${h.name}
+            </span>`;
+  }).join("<br>");
 }
 
-// ===============================
+// =======================================
 function finishRace(){
 
   cancelAnimationFrame(animationId);
 
-  const result=[...horses].sort((a,b)=>b.progress-a.progress);
+  const result=[...horses]
+    .sort((a,b)=>b.distance-a.distance);
 
   raceScreen.classList.remove("active");
   resultScreen.classList.add("active");
 
-  resultList.innerHTML=
-    result.map((h,i)=>`${i+1}位 ${h.name}`).join("<br>");
+  resultList.innerHTML=result.map((h,i)=>{
+
+    const index=horses.findIndex(x=>x.name===h.name);
+    const color=getHorseColor(index);
+
+    return `<span style="color:${color}">
+              ${i+1}位 ${h.name}
+            </span>`;
+  }).join("<br>");
 }
 
-// ===============================
-function getRaceTime(){
-  if(raceSetting.distance===1200) return 20;
-  if(raceSetting.distance===2400) return 30;
-  return 40;
+// =======================================
+function getHorseColor(i){
+  const colors=[
+    "#ff5252","#ff9800","#ffee58","#66bb6a",
+    "#42a5f5","#ab47bc","#ec407a","#26c6da"
+  ];
+  return colors[i];
 }
 
 function rand(min,max){
@@ -474,9 +415,7 @@ function shuffle(arr){
   return arr;
 }
 
-// ===============================
-// PWA
-// ===============================
+// =======================================
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("service-worker.js");
 }
