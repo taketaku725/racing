@@ -292,28 +292,29 @@ function updateHorses(dt){
 // =======================================
 function drawRace(){
 
-  canvas.width=canvas.clientWidth;
-  canvas.height=canvas.clientHeight;
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
 
-  const w=canvas.width;
-  const h=canvas.height;
+  const w = canvas.width;
+  const h = canvas.height;
 
   ctx.clearRect(0,0,w,h);
 
-  const cx=w/2;
-  const cy=h/2;
+  const cx = w/2;
+  const cy = h/2;
 
-  const outerRx=w*0.42;
-  const outerRy=h*0.32;
-  const innerRx=w*0.30;
-  const innerRy=h*0.22;
+  const outerRx = w*0.42;
+  const outerRy = h*0.32;
+  const innerRx = w*0.30;
+  const innerRy = h*0.22;
 
   ctx.fillStyle="#1a1a1a";
   ctx.fillRect(0,0,w,h);
 
+  // トラック
   ctx.beginPath();
   ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
-  ctx.fillStyle=raceSetting.track==="芝"?"#2e7d32":"#8b5a2b";
+  ctx.fillStyle = raceSetting.track==="芝" ? "#2e7d32" : "#8b5a2b";
   ctx.fill();
 
   ctx.globalCompositeOperation="destination-out";
@@ -323,7 +324,7 @@ function drawRace(){
   ctx.globalCompositeOperation="source-over";
 
   ctx.strokeStyle="white";
-  ctx.lineWidth=3;
+  ctx.lineWidth=2;
   ctx.beginPath();
   ctx.ellipse(cx,cy,outerRx,outerRy,0,0,Math.PI*2);
   ctx.stroke();
@@ -332,16 +333,41 @@ function drawRace(){
   ctx.ellipse(cx,cy,innerRx,innerRy,0,0,Math.PI*2);
   ctx.stroke();
 
+  const midRxBase = (outerRx+innerRx)/2;
+  const midRyBase = (outerRy+innerRy)/2;
+
+  // ゴール線（最終周の半分以降）
+  const leader = [...horses].sort((a,b)=>b.distance-a.distance)[0];
+  const finalLapStart = raceSetting.distance - 1200;
+
+  if(leader.distance > finalLapStart + 600){
+
+    ctx.strokeStyle="#ff4444";
+    ctx.lineWidth=4;
+
+    const angle = 0; // 右側固定
+    const x1 = cx + innerRx * Math.cos(angle);
+    const y1 = cy + innerRy * Math.sin(angle);
+    const x2 = cx + outerRx * Math.cos(angle);
+    const y2 = cy + outerRy * Math.sin(angle);
+
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+  }
+
+  // 馬描画
   horses.forEach((h,i)=>{
 
-    const lapProgress=(h.distance/1200);
-    const angle=(lapProgress%1)*Math.PI*2;
+    const lapProgress = h.distance / 1200;
+    const angle = (lapProgress % 1) * Math.PI*2;
 
-    const midRx=(outerRx+innerRx)/2;
-    const midRy=(outerRy+innerRy)/2;
+    const midRx = midRxBase + h.laneOffset;
+    const midRy = midRyBase + h.laneOffset*0.7;
 
-    const x=cx+midRx*Math.cos(angle);
-    const y=cy+midRy*Math.sin(angle);
+    const x = cx + midRx * Math.cos(angle);
+    const y = cy + midRy * Math.sin(angle);
 
     ctx.fillStyle="rgba(0,0,0,0.4)";
     ctx.beginPath();
