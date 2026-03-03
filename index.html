@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>競馬(仮)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<div id="oddsScreen" class="screen active">
+  <h1>オッズ画面</h1>
+  <div id="raceInfo"></div>
+  <div id="horseList"></div>
+  <button id="startRaceBtn">レース開始</button>
+</div>
+
+<div id="raceScreen" class="screen">
+  <canvas id="raceCanvas"></canvas>
+  <div id="ranking"></div>
+  <div id="commentary"></div>
+</div>
+
+<div id="resultScreen" class="screen">
+  <h1>結果</h1>
+  <div id="resultList"></div>
+  <button id="backBtn">戻る</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
