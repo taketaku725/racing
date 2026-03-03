@@ -11,3 +11,7 @@ document.getElementById("backBtn").onclick = () => {
   resultScreen.classList.remove("active");
   oddsScreen.classList.add("active");
 };
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
