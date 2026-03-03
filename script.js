@@ -78,6 +78,17 @@ function generateHorses() {
   }
 }
 
+function conditionLabel(value){
+
+  if(value >= 8) return "絶好調";
+  if(value >= 5) return "好調";
+  if(value >= 2) return "やや好調";
+  if(value >= -1) return "普通";
+  if(value >= -4) return "やや不調";
+  if(value >= -7) return "不調";
+  return "絶不調";
+}
+
 // ===== 作戦決定 =====
 function decideStrategy(h) {
 
@@ -91,7 +102,7 @@ function decideStrategy(h) {
 }
 
 // ===== 表示 =====
-function renderOddsScreen() {
+function renderOddsScreen(){
 
   raceInfo.innerHTML = `
     距離: ${raceSetting.distance}m /
@@ -102,22 +113,20 @@ function renderOddsScreen() {
   horseList.innerHTML = "";
 
   horses.forEach(h => {
+
     const div = document.createElement("div");
     div.style.borderBottom = "1px solid #555";
-    div.style.padding = "6px 0";
+    div.style.padding = "8px 0";
 
     div.innerHTML = `
       <strong>${h.name}</strong>
       (${h.strategy})
       <br>
-      SPD:${h.speed}
-      STA:${h.stamina}
-      ACC:${h.acceleration}
-      STB:${h.stability}
-      GUT:${h.guts}
-      <br>
       得意:${h.preferredTrack}
-      調子:${h.condition >=0 ? "+"+h.condition : h.condition}
+      /
+      調子:${conditionLabel(h.condition)}
+      <br>
+      杯数: --
     `;
 
     horseList.appendChild(div);
