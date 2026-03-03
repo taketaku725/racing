@@ -21,6 +21,10 @@ canvas {
   touch-action: manipulation;
 }
 
+#raceScreen canvas{
+  background: none;
+}
+
 /* 縦画面 */
 @media (orientation: portrait) {
   #ranking {
